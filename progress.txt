@@ -4,3 +4,4 @@
 ✅ Task 4 Complete: Created database client singleton in src/lib/db.ts
 ✅ Task 5 Complete: Created seed script (prisma/seed.ts) with default user preferences
 ✅ Task 6 Complete: Ran migration and seeded database (installed adapters for Prisma 7 compatibility)
+✅ Task 7 Complete: Updated .gitignore to exclude .env, database files, and IDE/OS files
