@@ -30,7 +30,7 @@ app.post('/chat', async (c) => {
       return c.json({ error: 'Message is required' }, 400)
     }
 
-    const result = streamText({
+    const result = await streamText({
       model,
       system: systemPrompt,
       prompt: message,
