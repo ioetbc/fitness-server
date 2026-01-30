@@ -1,1 +1,2 @@
 ✅ Task 1 Complete: Installed required dependencies (@prisma/client, zod, prisma)
+✅ Task 2 Complete: Initialized Prisma with SQLite (created schema.prisma, prisma.config.ts, and .env)
