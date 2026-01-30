@@ -1,43 +1,55 @@
 import { Hono } from 'hono'
+import { streamText as honoStreamText } from 'hono/streaming'
 import { openai } from '@ai-sdk/openai'
 import { streamText, tool } from 'ai'
 import { z } from 'zod'
 import { prisma } from './lib/db'
+import { favouriteColorAndFoodSystemPrompt } from './prompts/favourite-color-and-food-prompt'
 
 const app = new Hono()
 
 const model = openai('gpt-4o-mini')
 
-const systemPrompt = `You are a helpful assistant that can only answer questions about the user's favorite color and favorite food.
-
-If the user asks about their favorite color or favorite food, use the getUserPreference tool to retrieve the information, then respond with a complete sentence telling them their preference.
-
-If the user asks anything else unrelated to their preferences, respond with exactly: "I can't help with that"
-
-Always provide a text response after calling any tool.`
-
 app.get('/', async (c) => {
-  const prompt = c.req.query('prompt') ?? 'What is my favorite color the response must be atlest 300 characters long'
+  const prompt = c.req.query('prompt') ?? 'Make a night time playlist to help me sleep better'
+
   const result = streamText({
     model,
-    system: systemPrompt,
+    system: favouriteColorAndFoodSystemPrompt,
     stopWhen: ({ steps }) => steps.length >= 2,
     tools: {
-      getUserPreference: tool({
-        description: "Fetch the user's favorite color and favorite food",
+      getVideos: tool({
+        description: "Get videos",
         inputSchema: z.object({}),
+        outputSchema: z.object({
+          videos: z.array(z.object({
+            id: z.string(),
+            title: z.string(),
+            transcript: z.string(),
+            duration: z.number(),
+          })),
+        }),
         execute: async () => {
-          const userPreference = await prisma.userPreference.findUnique({
-            where: { userId: 'default_user' },
-          })
-          return userPreference
+          const rows = await prisma.video.findMany()
+          return {
+            videos: rows.map((v) => ({
+              id: String(v.id),
+              title: v.title,
+              transcript: v.transcript,
+              duration: v.duration,
+            })),
+          }
         },
       }),
     },
     prompt,
   })
 
-  return result.toTextStreamResponse()
+  return honoStreamText(c, async (stream) => {
+    for await (const chunk of result.textStream) {
+      await stream.write(chunk)
+    }
+  })
 })
 
 export default app

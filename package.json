@@ -2,7 +2,9 @@
   "name": "my-app",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
-    "db:seed": "bun run prisma/seed.ts"
+    "db:seed": "bun run prisma/seed.ts",
+    "db:migrate": "bun run prisma migrate dev",
+    "db:generate": "bun run prisma generate"
   },
   "prisma": {
     "seed": "bun run prisma/seed.ts"
