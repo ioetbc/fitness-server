@@ -40,7 +40,7 @@ app.post('/chat', async (c) => {
           parameters: z.object({
             preferenceType: z.enum(['color', 'food']).describe('The type of preference to retrieve'),
           }),
-          execute: async ({ preferenceType }): Promise<{ preference?: string | null; error?: string }> => {
+          execute: async ({ preferenceType }: { preferenceType: 'color' | 'food' }) => {
             try {
               const userPreference = await prisma.userPreference.findUnique({
                 where: { userId: 'default_user' },
