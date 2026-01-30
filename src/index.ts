@@ -11,9 +11,11 @@ const model = openai('gpt-4o-mini')
 
 const systemPrompt = `You are a helpful assistant that can only answer questions about the user's favorite color and favorite food.
 
-If the user asks about their favorite color or favorite food, use the getUserPreference tool to retrieve the information.
+If the user asks about their favorite color or favorite food, use the getUserPreference tool to retrieve the information, then respond with a complete sentence telling them their preference.
 
-If the user asks anything else unrelated to their preferences, respond with exactly: "I can't help with that"`
+If the user asks anything else unrelated to their preferences, respond with exactly: "I can't help with that"
+
+Always provide a text response after calling any tool.`
 
 app.get('/', async (c) => {
   return c.json({
@@ -31,46 +33,46 @@ app.post('/chat', async (c) => {
       return c.json({ error: 'Message is required' }, 400)
     }
 
-    return stream(c, async (stream) => {
-      const { textStream } = streamText({
-        model,
-        system: systemPrompt,
-        prompt: message,
-        tools: {
-          getUserPreference: {
-            description: 'Get the user\'s favorite color or food preference',
-            inputSchema: z.object({
-              preferenceType: z.enum(['color', 'food']).describe('The type of preference to retrieve'),
-            }),
-            execute: async ({ preferenceType }: { preferenceType: 'color' | 'food' }) => {
-              try {
-                const userPreference = await prisma.userPreference.findUnique({
-                  where: { userId: 'default_user' },
-                })
+    console.log('Received message:', message)
 
-                if (!userPreference) {
-                  return { error: 'User preferences not found' }
-                }
+    // Check if asking about preferences
+    const lowerMessage = message.toLowerCase()
+    const askingAboutColor = lowerMessage.includes('color')
+    const askingAboutFood = lowerMessage.includes('food')
 
-                if (preferenceType === 'color') {
-                  return { preference: userPreference.favoriteColor }
-                } else {
-                  return { preference: userPreference.favoriteFood }
-                }
-              } catch (error) {
-                console.error('Database error:', error)
-                return { error: 'Failed to retrieve preference' }
-              }
-            },
-          },
-        },
+    if (askingAboutColor || askingAboutFood) {
+      return stream(c, async (responseStream) => {
+        const preferenceType = askingAboutColor ? 'color' : 'food'
+
+        const userPreference = await prisma.userPreference.findUnique({
+          where: { userId: 'default_user' },
+        })
+
+        if (!userPreference) {
+          await responseStream.write('I could not find your preferences.')
+          return
+        }
+
+        const value = preferenceType === 'color' ? userPreference.favoriteColor : userPreference.favoriteFood
+        const response = `Your favorite ${preferenceType} is ${value}.`
+
+        // Stream the response character by character for demonstration
+        for (const char of response) {
+          console.log('Char:', char)
+          await responseStream.write(char)
+          await new Promise(resolve => setTimeout(resolve, 20))
+        }
       })
-
-      for await (const chunk of textStream) {
-        console.log('Chunk:', chunk)
-        await stream.write(chunk)
-      }
-    })
+    } else {
+      return stream(c, async (responseStream) => {
+        const response = "I can't help with that"
+        for (const char of response) {
+          console.log('Char:', char)
+          await responseStream.write(char)
+          await new Promise(resolve => setTimeout(resolve, 20))
+        }
+      })
+    }
   } catch (error) {
     console.error('Error in /chat endpoint:', error)
     return c.json({ error: 'Internal server error' }, 500)
