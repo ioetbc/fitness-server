@@ -8,3 +8,12 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+model UserPreference {
+  id            Int      @id @default(autoincrement())
+  userId        String   @unique @default("default_user")
+  favoriteColor String?
+  favoriteFood  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
