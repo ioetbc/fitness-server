@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { openai } from '@ai-sdk/openai'
-import { streamText } from 'ai'
+import { streamText, tool } from 'ai'
 import { z } from 'zod'
 import { prisma } from './lib/db'
 
@@ -35,12 +35,12 @@ app.post('/chat', async (c) => {
       system: systemPrompt,
       prompt: message,
       tools: {
-        getUserPreference: {
+        getUserPreference: tool({
           description: 'Get the user\'s favorite color or food preference',
           parameters: z.object({
             preferenceType: z.enum(['color', 'food']).describe('The type of preference to retrieve'),
           }),
-          execute: async ({ preferenceType }) => {
+          execute: async ({ preferenceType }): Promise<{ preference?: string | null; error?: string }> => {
             try {
               const userPreference = await prisma.userPreference.findUnique({
                 where: { userId: 'default_user' },
@@ -60,11 +60,11 @@ app.post('/chat', async (c) => {
               return { error: 'Failed to retrieve preference' }
             }
           },
-        },
+        }),
       },
     })
 
-    return result.toDataStreamResponse()
+    return result.toTextStreamResponse()
   } catch (error) {
     console.error('Error in /chat endpoint:', error)
     return c.json({ error: 'Internal server error' }, 500)
