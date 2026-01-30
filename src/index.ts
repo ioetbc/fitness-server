@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
-import { stream } from 'hono/streaming'
 import { openai } from '@ai-sdk/openai'
-import { streamText } from 'ai'
+import { streamText, tool } from 'ai'
 import { z } from 'zod'
 import { prisma } from './lib/db'
 
@@ -18,65 +17,27 @@ If the user asks anything else unrelated to their preferences, respond with exac
 Always provide a text response after calling any tool.`
 
 app.get('/', async (c) => {
-  return c.json({
-    status: 'ok',
-    message: 'Fitness server is running'
+  const prompt = c.req.query('prompt') ?? 'What is my favorite color the response must be atlest 300 characters long'
+  const result = streamText({
+    model,
+    system: systemPrompt,
+    stopWhen: ({ steps }) => steps.length >= 2,
+    tools: {
+      getUserPreference: tool({
+        description: "Fetch the user's favorite color and favorite food",
+        inputSchema: z.object({}),
+        execute: async () => {
+          const userPreference = await prisma.userPreference.findUnique({
+            where: { userId: 'default_user' },
+          })
+          return userPreference
+        },
+      }),
+    },
+    prompt,
   })
-})
 
-app.post('/chat', async (c) => {
-  try {
-    const body = await c.req.json()
-    const message = body.message
-
-    if (!message) {
-      return c.json({ error: 'Message is required' }, 400)
-    }
-
-    console.log('Received message:', message)
-
-    // Check if asking about preferences
-    const lowerMessage = message.toLowerCase()
-    const askingAboutColor = lowerMessage.includes('color')
-    const askingAboutFood = lowerMessage.includes('food')
-
-    if (askingAboutColor || askingAboutFood) {
-      return stream(c, async (responseStream) => {
-        const preferenceType = askingAboutColor ? 'color' : 'food'
-
-        const userPreference = await prisma.userPreference.findUnique({
-          where: { userId: 'default_user' },
-        })
-
-        if (!userPreference) {
-          await responseStream.write('I could not find your preferences.')
-          return
-        }
-
-        const value = preferenceType === 'color' ? userPreference.favoriteColor : userPreference.favoriteFood
-        const response = `Your favorite ${preferenceType} is ${value}.`
-
-        // Stream the response character by character for demonstration
-        for (const char of response) {
-          console.log('Char:', char)
-          await responseStream.write(char)
-          await new Promise(resolve => setTimeout(resolve, 20))
-        }
-      })
-    } else {
-      return stream(c, async (responseStream) => {
-        const response = "I can't help with that"
-        for (const char of response) {
-          console.log('Char:', char)
-          await responseStream.write(char)
-          await new Promise(resolve => setTimeout(resolve, 20))
-        }
-      })
-    }
-  } catch (error) {
-    console.error('Error in /chat endpoint:', error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
+  return result.toTextStreamResponse()
 })
 
 export default app
