@@ -10,6 +10,8 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.18",
     "@ai-sdk/openai": "^3.0.23",
+    "@libsql/client": "^0.17.0",
+    "@prisma/adapter-libsql": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "ai": "^6.0.62",
     "hono": "^4.11.7",

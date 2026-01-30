@@ -3,3 +3,4 @@
 ✅ Task 3 Complete: Created database schema with UserPreference model
 ✅ Task 4 Complete: Created database client singleton in src/lib/db.ts
 ✅ Task 5 Complete: Created seed script (prisma/seed.ts) with default user preferences
+✅ Task 6 Complete: Ran migration and seeded database (installed adapters for Prisma 7 compatibility)
