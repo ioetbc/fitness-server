@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
+import { stream } from 'hono/streaming'
 import { openai } from '@ai-sdk/openai'
-import { streamText, tool } from 'ai'
+import { streamText } from 'ai'
 import { z } from 'zod'
 import { prisma } from './lib/db'
 
@@ -30,41 +31,46 @@ app.post('/chat', async (c) => {
       return c.json({ error: 'Message is required' }, 400)
     }
 
-    const result = await streamText({
-      model,
-      system: systemPrompt,
-      prompt: message,
-      tools: {
-        getUserPreference: tool({
-          description: 'Get the user\'s favorite color or food preference',
-          parameters: z.object({
-            preferenceType: z.enum(['color', 'food']).describe('The type of preference to retrieve'),
-          }),
-          execute: async ({ preferenceType }: { preferenceType: 'color' | 'food' }) => {
-            try {
-              const userPreference = await prisma.userPreference.findUnique({
-                where: { userId: 'default_user' },
-              })
+    return stream(c, async (stream) => {
+      const { textStream } = streamText({
+        model,
+        system: systemPrompt,
+        prompt: message,
+        tools: {
+          getUserPreference: {
+            description: 'Get the user\'s favorite color or food preference',
+            inputSchema: z.object({
+              preferenceType: z.enum(['color', 'food']).describe('The type of preference to retrieve'),
+            }),
+            execute: async ({ preferenceType }: { preferenceType: 'color' | 'food' }) => {
+              try {
+                const userPreference = await prisma.userPreference.findUnique({
+                  where: { userId: 'default_user' },
+                })
 
-              if (!userPreference) {
-                return { error: 'User preferences not found' }
-              }
+                if (!userPreference) {
+                  return { error: 'User preferences not found' }
+                }
 
-              if (preferenceType === 'color') {
-                return { preference: userPreference.favoriteColor }
-              } else {
-                return { preference: userPreference.favoriteFood }
+                if (preferenceType === 'color') {
+                  return { preference: userPreference.favoriteColor }
+                } else {
+                  return { preference: userPreference.favoriteFood }
+                }
+              } catch (error) {
+                console.error('Database error:', error)
+                return { error: 'Failed to retrieve preference' }
               }
-            } catch (error) {
-              console.error('Database error:', error)
-              return { error: 'Failed to retrieve preference' }
-            }
+            },
           },
-        }),
-      },
-    })
+        },
+      })
 
-    return result.toTextStreamResponse()
+      for await (const chunk of textStream) {
+        console.log('Chunk:', chunk)
+        await stream.write(chunk)
+      }
+    })
   } catch (error) {
     console.error('Error in /chat endpoint:', error)
     return c.json({ error: 'Internal server error' }, 500)
