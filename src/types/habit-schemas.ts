@@ -5,6 +5,41 @@ import { z } from 'zod'
  */
 
 // ============================================================================
+// ALLOWED UNITS - Normalized values only
+// ============================================================================
+
+/**
+ * Strictly defined unit values that the LLM must map to.
+ * The LLM prompt guides normalization, but Zod enforces only these values are accepted.
+ */
+export const allowedUnits = [
+  // Distance
+  'km',
+  'miles',
+  'meters',
+  // Time
+  'minutes',
+  'hours',
+  'seconds',
+  // Weight
+  'pounds',
+  'kg',
+  // Volume
+  'oz',
+  'liters',
+  'ml',
+  // Count (common examples - can be extended)
+  'pages',
+  'reps',
+  'drinks',
+  'cigarettes',
+  'cups',
+  'glasses',
+] as const
+
+export type AllowedUnit = typeof allowedUnits[number]
+
+// ============================================================================
 // HABIT LOGGING SCHEMAS
 // ============================================================================
 
@@ -17,7 +52,7 @@ export const habitLogParseSchema = z.object({
   completed: z.boolean().describe('Whether the habit was completed/avoided'),
   habitType: z.enum(['BUILD', 'BREAK']).describe('BUILD = cultivate, BREAK = avoid'),
   quantity: z.number().nullable().describe('Optional numeric quantity'),
-  unit: z.string().nullable().describe('Optional unit (miles, minutes, pages, etc.)'),
+  unit: z.enum(allowedUnits).nullable().describe('Optional unit - MUST be one of the normalized values: km, miles, meters, minutes, hours, seconds, pounds, kg, oz, liters, ml, pages, reps, drinks, cigarettes, cups, glasses'),
   timeOfDay: z.string().nullable().describe('Optional time: morning, afternoon, evening, night'),
   eventDate: z.string().describe('ISO date string when the habit occurred'),
   notes: z.string().nullable().describe('Optional notes or context'),
@@ -41,7 +76,7 @@ export const habitLogResponseSchema = z.object({
     completed: z.boolean(),
     eventDate: z.string(),
     quantity: z.number().nullable(),
-    unit: z.string().nullable(),
+    unit: z.enum(allowedUnits).nullable(),
     timeOfDay: z.string().nullable(),
     notes: z.string().nullable(),
   }),
@@ -81,7 +116,7 @@ export const createHabitLogSchema = z.object({
   completed: z.boolean().describe('Whether the habit was completed/avoided'),
   eventDate: z.string().describe('ISO date string when the habit occurred'),
   quantity: z.number().nullable().optional().describe('Optional numeric quantity'),
-  unit: z.string().nullable().optional().describe('Optional unit'),
+  unit: z.enum(allowedUnits).nullable().optional().describe('Optional unit - must be normalized'),
   timeOfDay: z.string().nullable().optional().describe('Optional time of day'),
   notes: z.string().nullable().optional().describe('Optional notes'),
 })
