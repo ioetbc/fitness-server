@@ -79,6 +79,37 @@ When creating NEW habits (no semantic match found), normalize names to be concis
 
 But ALWAYS prefer matching an existing habit over creating a new normalized name.
 
+## Unit Normalization (CRITICAL)
+
+When extracting quantity and unit, ALWAYS normalize units to standard forms:
+
+**Distance:**
+- "k", "kms", "kilometers", "kilometer" → "km"
+- "mi", "mile", "miles" → "miles"
+- "m", "meter", "meters" → "meters"
+
+**Time:**
+- "min", "mins", "minute", "minutes" → "minutes"
+- "hr", "hrs", "hour", "hours" → "hours"
+- "sec", "secs", "second", "seconds" → "seconds"
+
+**Weight:**
+- "lb", "lbs", "pound", "pounds" → "pounds"
+- "kg", "kgs", "kilogram", "kilograms" → "kg"
+
+**Volume:**
+- "oz", "ounce", "ounces" → "oz"
+- "l", "liter", "liters", "litre", "litres" → "liters"
+- "ml", "milliliter", "milliliters" → "ml"
+
+**Count (no normalization needed):**
+- pages, reps, drinks, cigarettes, etc.
+
+Examples:
+- "ran 5k" → unit: "km" (not "k")
+- "read for 30 mins" → unit: "minutes" (not "mins")
+- "lifted 50 lbs" → unit: "pounds" (not "lbs")
+
 ## Date Parsing
 
 Parse relative dates:
@@ -240,6 +271,22 @@ Output:
   "notes": null
 }
 
+### Example 10: Unit normalization
+Existing habits:
+- "running" (BUILD)
+Input: "ran 5k 3 days ago"
+Output:
+{
+  "habitName": "running",
+  "completed": true,
+  "habitType": "BUILD",
+  "quantity": 5,
+  "unit": "km",
+  "timeOfDay": null,
+  "eventDate": "2026-01-31",
+  "notes": null
+}
+
 ## Important Notes
 
 - Be intelligent about context: "drinking" without context likely means alcohol (BREAK), but "drinking water" is BUILD
@@ -256,6 +303,15 @@ Extract the habit information from the user's input and return it in the specifi
  * System prompt for answering habit analytics queries
  * Used with streaming text output to provide conversational responses
  */
+
+// query prompts that do not work:
+// 1. When did I last have a drink? -> I don't see any logs for the habit "have a drink" yet.
+// 2. Whats the longest iv'e gone without drinking? -> I don't see any logs for your drinking habit yet. Want to start tracking it?
+// 3. how many kilometers have I run -> You've run 6 times since January 29th, with a 100% completion rate! Keep it up! 🌟 -> The answer should be get the number of kilometers I have actually run by cross referencing the unit and the quantity
+
+// create prompts that do not work
+// 1. When I say: I ran 5k 3 days ago -> sometimes the unit is "k", "km", or "kilometers". -> "km" is correct
+
 export const HABIT_QUERY_SYSTEM_PROMPT = `You are a supportive habit tracking assistant that answers questions about the user's habit history.
 
 Your role is to:
@@ -263,14 +319,23 @@ Your role is to:
 2. Use the available tools to fetch relevant data
 3. Provide encouraging, conversational responses with specific details
 
+## CRITICAL: Semantic Habit Matching
+
+You will be provided with a list of the user's existing habits. When they ask about a habit, you MUST map their query to the actual habit name stored in the database.
+
+Examples:
+- User has habit "drinking" → queries "have a drink", "alcohol", "had drinks" all map to "drinking"
+- User has habit "running" → queries "jog", "went for a run", "did a 5k" all map to "running"
+
+NEVER pass user's raw phrasing to tools - always use the actual habit name from the existing habits list.
+
 ## Response Style
 
-- Be warm, encouraging, and conversational
+- Be assertive and straight if they are not doing well. Tell them the truth.
 - Include specific numbers and dates in your answers
 - Celebrate successes and progress
-- Be empathetic about challenges
 - Use natural language, not robotic responses
-- Keep responses concise but informative (2-4 sentences)
+- Keep responses very concise but informative 10 - 20 characters max
 
 ## Understanding BUILD vs BREAK Habits
 
@@ -369,9 +434,23 @@ export function buildLoggingPrompt(
 }
 
 /**
- * Build the full query prompt with current date context
+ * Build the full query prompt with current date context and existing habits
  */
-export function buildQueryPrompt(userInput: string): string {
+export function buildQueryPrompt(
+  userInput: string,
+  existingHabits: Array<{ name: string; type: 'BUILD' | 'BREAK' }>
+): string {
   const today = getTodayForPrompt()
-  return `${HABIT_QUERY_SYSTEM_PROMPT}\n\nToday's date: ${today}\n\nUser question: "${userInput}"`
+
+  let habitsContext = ''
+  if (existingHabits.length > 0) {
+    habitsContext = '\n\nEXISTING HABITS (use these exact names when calling tools):\n'
+    habitsContext += existingHabits
+      .map(h => `- "${h.name}" (${h.type})`)
+      .join('\n')
+  } else {
+    habitsContext = '\n\nEXISTING HABITS: None yet.'
+  }
+
+  return `${HABIT_QUERY_SYSTEM_PROMPT}\n\nToday's date: ${today}${habitsContext}\n\nUser question: "${userInput}"`
 }

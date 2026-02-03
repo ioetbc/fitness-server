@@ -41,14 +41,9 @@ const app = new Hono()
 const getHabitLogsTool = tool({
   description:
     'Fetch habit logs for a specific habit with optional date range filtering',
-  parameters: getHabitLogsSchema,
-  execute: async ({
-    habitName,
-    userId = 'default_user',
-    limit = 100,
-    startDate,
-    endDate,
-  }) => {
+  inputSchema: getHabitLogsSchema,
+  execute: async (params: z.infer<typeof getHabitLogsSchema>) => {
+    const { habitName, userId = 'default_user', limit = 100, startDate, endDate } = params
     // Find the habit first
     const habit = await prisma.habit.findUnique({
       where: { userId_name: { userId, name: habitName } },
@@ -85,7 +80,7 @@ const getHabitLogsTool = tool({
  */
 const calculateStreakTool = tool({
   description: 'Calculate the current streak (consecutive days) for a habit',
-  parameters: calculateStreakSchema,
+  inputSchema: calculateStreakSchema,
   execute: async ({
     habitName,
     userId = 'default_user',
@@ -121,7 +116,7 @@ const calculateStreakTool = tool({
 const findLastOccurrenceTool = tool({
   description:
     'Find the last time a habit was completed (BUILD) or given in to (BREAK)',
-  parameters: findLastOccurrenceSchema,
+  inputSchema: findLastOccurrenceSchema,
   execute: async ({
     habitName,
     userId = 'default_user',
@@ -160,7 +155,7 @@ const findLastOccurrenceTool = tool({
 const getHabitStatsTool = tool({
   description:
     'Get comprehensive statistics including completion rate, streaks, and date ranges',
-  parameters: getHabitStatsSchema,
+  inputSchema: getHabitStatsSchema,
   execute: async ({
     habitName,
     userId = 'default_user',
@@ -282,17 +277,24 @@ app.post('/log', async (c) => {
 app.get('/query', async (c) => {
   try {
     const prompt = c.req.query('prompt')
+    const userId = 'default_user'
 
     if (!prompt) {
       return c.json({ error: 'Missing prompt parameter' }, 400)
     }
 
-    const userId = 'default_user'
+    // Fetch existing habits for semantic matching (similar to /log endpoint)
+    const existingHabits = await prisma.habit.findMany({
+      where: { userId },
+      select: { name: true, type: true },
+    })
 
-    // Stream the response
+    const query = buildQueryPrompt(prompt, existingHabits)
+
     const result = streamText({
       model: openai('gpt-4o'),
-      prompt: buildQueryPrompt(prompt),
+      prompt: query,
+      stopWhen: ({ steps }) => steps.length >= 10, // should this be equal to number of steps?
       tools: {
         getHabitLogs: getHabitLogsTool,
         calculateStreak: calculateStreakTool,
