@@ -1,90 +1,32 @@
-✅ Task 1: Database schema updated and migrated
-- Added HabitType enum (BUILD/BREAK)
-- Added Habit model with userId, name, type fields
-- Added HabitLog model with all required fields (completed, eventDate, quantity, unit, timeOfDay, notes)
-- Added proper indexes for performance
-- Migration created and applied successfully
-- Committed: 90c193d
+=== IMPLEMENTATION PROGRESS ===
 
-✅ Task 2: Sample seed data created and tested
-- Created 5 diverse habits: running, reading before bed, meditating (BUILD); drinking, smoking (BREAK)
-- Running: 7-day streak with distance tracking (3-6 miles per day)
-- Reading: Mixed completion with page counts
-- Meditating: 3-day streak with duration tracking
-- Drinking (BREAK): 19-day avoidance streak (last slip 19 days ago)
-- Smoking (BREAK): 30-day avoidance streak
-- Seed tested successfully with `bun run db:seed`
-- Committed: 5b18743
+[✓] Task 1: Add Unit Normalization to Logging Prompt
+    Files: src/prompts/habit-tracking-prompts.ts, src/types/habit-schemas.ts
+    - Added comprehensive unit normalization section to HABIT_LOGGING_SYSTEM_PROMPT
+    - Defined standard units for distance, time, weight, volume, and count
+    - Added Example 10 demonstrating unit normalization ("5k" → "km")
+    - Created allowedUnits const array with all normalized values
+    - Updated habitLogParseSchema, createHabitLogSchema, habitLogResponseSchema to use z.enum(allowedUnits)
+    - Two-layer validation: LLM prompt guides + Zod schema enforces
+    Commit: 1ad1979
 
-✅ Task 3: Analytics utilities implemented and unit tested
-- Created src/lib/habit-analytics.ts with comprehensive functions:
-  - calculateCurrentStreak: handles gaps, breaks, and same-day logs
-  - calculateLongestStreak: finds longest streak in history
-  - findLastOccurrence: different logic for BUILD vs BREAK habits
-  - calculateStats: total logs, completion rate, streaks, dates
-  - Date utilities: daysBetween, isConsecutiveDay, isSameDay
-  - normalizeLogs: deduplicates same-day entries
-  - filterLogsByDateRange: date range queries
-- Created comprehensive test suite with 33 tests
-- All tests passing with Bun test runner
-- Fixed TypeScript iterator error
-- Committed: ba1d28a, fa41eaa
+[✓] Task 2: Fix Query Prompt - Add Existing Habits Context
+    Files: src/prompts/habit-tracking-prompts.ts, src/routes/habits.ts
+    - Added "CRITICAL: Semantic Habit Matching" section to HABIT_QUERY_SYSTEM_PROMPT
+    - Updated buildQueryPrompt() signature to accept existingHabits parameter
+    - Added logic to format existing habits list in prompt
+    - Updated /query route to fetch existing habits from database
+    - Now LLM can map "have a drink" → "drinking" habit
+    Commit: c369b92
 
-✅ Task 4: System prompts written with comprehensive examples
-- Created src/prompts/habit-tracking-prompts.ts
-- HABIT_LOGGING_SYSTEM_PROMPT: Parses natural language logs to structured JSON
-  - KEY FEATURE: Semantic matching to existing habits to prevent fragmentation
-  - Prevents "no alcohol", "didn't drink" creating separate habits
-  - BUILD vs BREAK classification with clear completion logic
-  - Date parsing, quantity/unit extraction
-  - 9 detailed examples showing matching behavior
-- HABIT_QUERY_SYSTEM_PROMPT: Conversational analytics responses
-  - Encouraging, specific responses with dates and numbers
-  - Understands BUILD vs BREAK context for queries
-  - Tool usage guidelines for data fetching
-- Helper functions: buildLoggingPrompt (with existing habits context), buildQueryPrompt
-- Committed: 6b1119f
+[ ] Task 3: Fix Query Prompt - Add Quantity Aggregation Guidance
+    Files: src/prompts/habit-tracking-prompts.ts
+    - Add "Aggregate Queries" section after line 318 in HABIT_QUERY_SYSTEM_PROMPT
+    - Explain that "how many kilometers" queries need to sum quantity field
+    - Add example response for aggregate queries
 
-✅ Task 5: Zod validation schemas created
-- Created src/types/habit-schemas.ts
-- Schemas for logging: habitLogParseSchema, habitLogResponseSchema
-- Tool parameter schemas: 7 schemas for all tools
-- Helper functions: createSuccessResponse, createErrorResponse
-- Full TypeScript type inference with z.infer
-- Committed: 85df793
-
-✅ Task 6: Habit tracking routes implemented
-- Created src/routes/habits.ts with full implementation
-- POST /habits/log: Natural language logging with semantic matching
-- GET /habits/query: Streaming conversational analytics
-- GET /habits/list: List all habits with stats
-- 7 tools implemented: logging tools (3) + query tools (4)
-- Mounted routes in src/index.ts at /habits
-- Uses shared prisma instance from lib/db
-- Committed: 94b2a3a
-
-✅ Task 7: Comprehensive integration tests passing
-- Created src/routes/habits.integration.test.ts
-- 14 integration tests covering all PRD test cases
-- Tests hit live server and validate real behavior
-- All core functionality verified:
-  - BUILD vs BREAK habit classification ✓
-  - Semantic matching (jogging → running, stayed sober → drinking) ✓
-  - Quantity/unit extraction ✓
-  - Retroactive logging (yesterday, last night) ✓
-  - Time of day parsing ✓
-  - Multiple logs same day handling ✓
-  - Ambiguous context (drinking water vs drinking alcohol) ✓
-- All 14 tests passing with 77 assertions
-- Committed: 3331b25
-
-✅ Task 8: API documentation completed
-- Created HABIT_TRACKING_API.md with comprehensive documentation
-- All 3 endpoints documented with curl examples
-- BUILD vs BREAK habit types explained
-- 11 detailed API examples covering all use cases
-- Edge cases documented (semantic matching, ambiguity, same-day logs, retroactive)
-- Error handling examples
-- Testing instructions (unit + integration)
-- Architecture overview and database schema
-- Committed: dc46e3b
+[ ] Task 4: Fix Query Prompt - Add Longest Streak Guidance
+    Files: src/prompts/habit-tracking-prompts.ts
+    - Update streak query examples to include longest streak
+    - Clarify that getHabitStatsTool returns both current and longest streaks
+    - Add example response for longest streak queries
