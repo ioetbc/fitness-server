@@ -23,6 +23,52 @@ model Video {
   title     String
   transcript String
   duration  Int
+  tags      Tag[]    @relation("Tag")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Tag {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  videos    Video[]  @relation("Tag")
+}
+
+enum HabitType {
+  BUILD  // Habits to cultivate
+  BREAK  // Habits to avoid
+}
+
+model Habit {
+  id          Int         @id @default(autoincrement())
+  userId      String      @default("default_user")
+  name        String      // Normalized: "running", "drinking", "reading before bed"
+  type        HabitType   // BUILD or BREAK
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  logs        HabitLog[]
+
+  @@unique([userId, name])
+  @@index([userId, type])
+}
+
+model HabitLog {
+  id              Int       @id @default(autoincrement())
+  habitId         Int
+  habit           Habit     @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  completed       Boolean   // true = did it / successfully avoided
+  loggedAt        DateTime  @default(now())
+  eventDate       DateTime  // When habit actually occurred
+  quantity        Float?    // Flexible metrics
+  unit            String?   // "miles", "glasses", "minutes", etc.
+  timeOfDay       String?   // "morning", "afternoon", "evening", "night"
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([habitId, eventDate])
+  @@index([habitId, completed])
+  @@index([eventDate])
 }
