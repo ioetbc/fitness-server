@@ -62,3 +62,18 @@
 - Mounted routes in src/index.ts at /habits
 - Uses shared prisma instance from lib/db
 - Committed: 94b2a3a
+
+✅ Task 7: Comprehensive integration tests passing
+- Created src/routes/habits.integration.test.ts
+- 14 integration tests covering all PRD test cases
+- Tests hit live server and validate real behavior
+- All core functionality verified:
+  - BUILD vs BREAK habit classification ✓
+  - Semantic matching (jogging → running, stayed sober → drinking) ✓
+  - Quantity/unit extraction ✓
+  - Retroactive logging (yesterday, last night) ✓
+  - Time of day parsing ✓
+  - Multiple logs same day handling ✓
+  - Ambiguous context (drinking water vs drinking alcohol) ✓
+- All 14 tests passing with 77 assertions
+- Committed: 3331b25
