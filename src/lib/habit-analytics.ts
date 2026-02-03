@@ -77,7 +77,7 @@ export function normalizeLogs(logs: HabitLog[]): HabitLog[] {
   // Priority: completed=true over false, then most recent loggedAt
   const normalizedLogs: HabitLog[] = []
 
-  for (const dayLogs of logsByDay.values()) {
+  for (const dayLogs of Array.from(logsByDay.values())) {
     // Sort by completed (true first) then by loggedAt (most recent first)
     dayLogs.sort((a, b) => {
       if (a.completed !== b.completed) {
