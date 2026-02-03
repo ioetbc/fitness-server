@@ -19,14 +19,32 @@
     - Now LLM can map "have a drink" → "drinking" habit
     Commit: c369b92
 
-[ ] Task 3: Fix Query Prompt - Add Quantity Aggregation Guidance
+[✓] Task 3: Fix Query Prompt - Add Quantity Aggregation Guidance
     Files: src/prompts/habit-tracking-prompts.ts
-    - Add "Aggregate Queries" section after line 318 in HABIT_QUERY_SYSTEM_PROMPT
-    - Explain that "how many kilometers" queries need to sum quantity field
-    - Add example response for aggregate queries
+    - Added "Aggregate Queries" section to HABIT_QUERY_SYSTEM_PROMPT
+    - Explained that "how many kilometers" queries need to sum quantity field
+    - Added example response: "You've run 42 kilometers across 6 runs..."
+    - Now LLM knows to sum quantities instead of counting occurrences
+    Commit: dfb1a3d
 
-[ ] Task 4: Fix Query Prompt - Add Longest Streak Guidance
+[✓] Task 4: Fix Query Prompt - Add Longest Streak Guidance
     Files: src/prompts/habit-tracking-prompts.ts
-    - Update streak query examples to include longest streak
-    - Clarify that getHabitStatsTool returns both current and longest streaks
-    - Add example response for longest streak queries
+    - Updated streak query examples to include longest streak
+    - Added "what's the longest I've gone without drinking" example
+    - Clarified that getHabitStatsTool returns both current AND longest streaks
+    - Added example response showing longest streak with current comparison
+    Commit: 1214a53
+
+=== ALL TASKS COMPLETE ===
+
+Summary of changes:
+1. Unit normalization enforced via prompt + Zod schemas
+2. Semantic habit matching with existing habits context
+3. Aggregate query guidance for summing quantities
+4. Longest streak query support
+
+Ready for testing with:
+- "when did I last have a drink" → should map to "drinking" habit
+- "how many kilometers have I run" → should sum quantities
+- "what's the longest I've gone without drinking" → should show longest streak
+- "I ran 5k" → should normalize to unit: "km"
