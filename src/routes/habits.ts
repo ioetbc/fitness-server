@@ -44,8 +44,8 @@ const getHabitLogsTool = tool({
   parameters: getHabitLogsSchema,
   execute: async ({
     habitName,
-    userId,
-    limit,
+    userId = 'default_user',
+    limit = 100,
     startDate,
     endDate,
   }) => {
@@ -88,7 +88,7 @@ const calculateStreakTool = tool({
   parameters: calculateStreakSchema,
   execute: async ({
     habitName,
-    userId,
+    userId = 'default_user',
   }) => {
     const habit = await prisma.habit.findUnique({
       where: { userId_name: { userId, name: habitName } },
@@ -124,7 +124,7 @@ const findLastOccurrenceTool = tool({
   parameters: findLastOccurrenceSchema,
   execute: async ({
     habitName,
-    userId,
+    userId = 'default_user',
   }) => {
     const habit = await prisma.habit.findUnique({
       where: { userId_name: { userId, name: habitName } },
@@ -163,7 +163,7 @@ const getHabitStatsTool = tool({
   parameters: getHabitStatsSchema,
   execute: async ({
     habitName,
-    userId,
+    userId = 'default_user',
     startDate,
     endDate,
   }) => {

@@ -57,7 +57,7 @@ export type HabitLogResponse = z.infer<typeof habitLogResponseSchema>
  * Tool: Get existing habits for a user
  */
 export const getExistingHabitsSchema = z.object({
-  userId: z.string().default('default_user').describe('User ID to fetch habits for'),
+  userId: z.string().optional().describe('User ID to fetch habits for (defaults to default_user)'),
 })
 
 export type GetExistingHabitsParams = z.infer<typeof getExistingHabitsSchema>
@@ -66,7 +66,7 @@ export type GetExistingHabitsParams = z.infer<typeof getExistingHabitsSchema>
  * Tool: Create or update a habit
  */
 export const createOrUpdateHabitSchema = z.object({
-  userId: z.string().default('default_user').describe('User ID'),
+  userId: z.string().optional().describe('User ID (defaults to default_user)'),
   name: z.string().min(1).describe('Habit name (normalized, lowercase)'),
   type: z.enum(['BUILD', 'BREAK']).describe('BUILD = cultivate, BREAK = avoid'),
 })
@@ -93,8 +93,8 @@ export type CreateHabitLogParams = z.infer<typeof createHabitLogSchema>
  */
 export const getHabitLogsSchema = z.object({
   habitName: z.string().describe('Name of the habit to fetch logs for'),
-  userId: z.string().default('default_user').describe('User ID'),
-  limit: z.number().default(100).describe('Maximum number of logs to return'),
+  userId: z.string().optional().describe('User ID (defaults to default_user)'),
+  limit: z.number().optional().describe('Maximum number of logs to return (defaults to 100)'),
   startDate: z.string().optional().describe('ISO date string - filter logs from this date'),
   endDate: z.string().optional().describe('ISO date string - filter logs until this date'),
 })
@@ -106,7 +106,7 @@ export type GetHabitLogsParams = z.infer<typeof getHabitLogsSchema>
  */
 export const calculateStreakSchema = z.object({
   habitName: z.string().describe('Name of the habit to calculate streak for'),
-  userId: z.string().default('default_user').describe('User ID'),
+  userId: z.string().optional().describe('User ID (defaults to default_user)'),
 })
 
 export type CalculateStreakParams = z.infer<typeof calculateStreakSchema>
@@ -116,7 +116,7 @@ export type CalculateStreakParams = z.infer<typeof calculateStreakSchema>
  */
 export const findLastOccurrenceSchema = z.object({
   habitName: z.string().describe('Name of the habit to find last occurrence for'),
-  userId: z.string().default('default_user').describe('User ID'),
+  userId: z.string().optional().describe('User ID (defaults to default_user)'),
 })
 
 export type FindLastOccurrenceParams = z.infer<typeof findLastOccurrenceSchema>
@@ -126,7 +126,7 @@ export type FindLastOccurrenceParams = z.infer<typeof findLastOccurrenceSchema>
  */
 export const getHabitStatsSchema = z.object({
   habitName: z.string().describe('Name of the habit to get statistics for'),
-  userId: z.string().default('default_user').describe('User ID'),
+  userId: z.string().optional().describe('User ID (defaults to default_user)'),
   startDate: z.string().optional().describe('ISO date string - calculate stats from this date'),
   endDate: z.string().optional().describe('ISO date string - calculate stats until this date'),
 })
