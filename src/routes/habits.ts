@@ -48,7 +48,7 @@ const getHabitLogsTool = tool({
     limit,
     startDate,
     endDate,
-  }: z.infer<typeof getHabitLogsSchema>) => {
+  }) => {
     // Find the habit first
     const habit = await prisma.habit.findUnique({
       where: { userId_name: { userId, name: habitName } },
@@ -89,7 +89,7 @@ const calculateStreakTool = tool({
   execute: async ({
     habitName,
     userId,
-  }: z.infer<typeof calculateStreakSchema>) => {
+  }) => {
     const habit = await prisma.habit.findUnique({
       where: { userId_name: { userId, name: habitName } },
       include: { logs: { orderBy: { eventDate: 'asc' } } },
@@ -125,7 +125,7 @@ const findLastOccurrenceTool = tool({
   execute: async ({
     habitName,
     userId,
-  }: z.infer<typeof findLastOccurrenceSchema>) => {
+  }) => {
     const habit = await prisma.habit.findUnique({
       where: { userId_name: { userId, name: habitName } },
       include: { logs: { orderBy: { eventDate: 'desc' } } },
@@ -166,7 +166,7 @@ const getHabitStatsTool = tool({
     userId,
     startDate,
     endDate,
-  }: z.infer<typeof getHabitStatsSchema>) => {
+  }) => {
     const habit = await prisma.habit.findUnique({
       where: { userId_name: { userId, name: habitName } },
       include: { logs: { orderBy: { eventDate: 'asc' } } },
