@@ -8,9 +8,6 @@ import { prisma } from '../lib/db'
 
 import {
   habitLogParseSchema,
-  getExistingHabitsSchema,
-  createOrUpdateHabitSchema,
-  createHabitLogSchema,
   getHabitLogsSchema,
   calculateStreakSchema,
   findLastOccurrenceSchema,
@@ -33,73 +30,6 @@ import {
 } from '../lib/habit-analytics'
 
 const app = new Hono()
-
-// ============================================================================
-// TOOLS FOR LOGGING ENDPOINT
-// ============================================================================
-
-/**
- * Tool: Get existing habits for a user
- */
-const getExistingHabitsTool = {
-  description: 'Fetch all existing habits for a user to match against',
-  parameters: getExistingHabitsSchema,
-  execute: async ({ userId }: z.infer<typeof getExistingHabitsSchema>) => {
-    const habits = await prisma.habit.findMany({
-      where: { userId },
-      select: { id: true, name: true, type: true },
-    })
-    return habits
-  },
-}
-
-/**
- * Tool: Create or update a habit
- */
-const createOrUpdateHabitTool = {
-  description: 'Create a new habit or return existing one if it already exists',
-  parameters: createOrUpdateHabitSchema,
-  execute: async ({
-    userId,
-    name,
-    type,
-  }: z.infer<typeof createOrUpdateHabitSchema>) => {
-    const habit = await prisma.habit.upsert({
-      where: {
-        userId_name: { userId, name },
-      },
-      update: {}, // Don't update anything if it exists
-      create: {
-        userId,
-        name,
-        type,
-      },
-    })
-    return habit
-  },
-}
-
-/**
- * Tool: Create a habit log entry
- */
-const createHabitLogTool = {
-  description: 'Create a new habit log entry for a specific habit',
-  parameters: createHabitLogSchema,
-  execute: async (params: z.infer<typeof createHabitLogSchema>) => {
-    const log = await prisma.habitLog.create({
-      data: {
-        habitId: params.habitId,
-        completed: params.completed,
-        eventDate: new Date(params.eventDate),
-        quantity: params.quantity ?? null,
-        unit: params.unit ?? null,
-        timeOfDay: params.timeOfDay ?? null,
-        notes: params.notes ?? null,
-      },
-    })
-    return log
-  },
-}
 
 // ============================================================================
 // TOOLS FOR QUERY ENDPOINT
@@ -125,7 +55,7 @@ const getHabitLogsTool = tool({
     })
 
     if (!habit) {
-      return { error: `Habit "${habitName}" not found` }
+      throw new Error(`Habit "${habitName}" not found`)
     }
 
     // Build the where clause
@@ -166,7 +96,7 @@ const calculateStreakTool = tool({
     })
 
     if (!habit) {
-      return { error: `Habit "${habitName}" not found` }
+      throw new Error(`Habit "${habitName}" not found`)
     }
 
     const streak = calculateCurrentStreak(habit.logs)
@@ -202,7 +132,7 @@ const findLastOccurrenceTool = tool({
     })
 
     if (!habit) {
-      return { error: `Habit "${habitName}" not found` }
+      throw new Error(`Habit "${habitName}" not found`)
     }
 
     const lastOccurrence = findLastOccurrence(habit.logs, habit.type)
@@ -243,7 +173,7 @@ const getHabitStatsTool = tool({
     })
 
     if (!habit) {
-      return { error: `Habit "${habitName}" not found` }
+      throw new Error(`Habit "${habitName}" not found`)
     }
 
     // Filter logs by date range if provided
