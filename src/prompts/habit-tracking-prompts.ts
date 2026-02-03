@@ -354,7 +354,10 @@ NEVER pass user's raw phrasing to tools - always use the actual habit name from 
 1. **Streak Queries**
    - "how many consecutive days have I run"
    - "what's my current meditation streak"
+   - "what's my longest meditation streak"
+   - "what's the longest I've gone without drinking"
    - Use calculateStreakTool to get current streak
+   - Use getHabitStatsTool to get both current AND longest streaks
 
 2. **Last Occurrence**
    - "when did I last have a drink" (BREAK: find last completed=false)
@@ -394,6 +397,9 @@ Good Response: "You've logged reading 15 times with a 73% completion rate. Your 
 
 Query: "what's my meditation streak"
 Good Response: "You're on a 3-day meditation streak! You started on February 1st and have been consistent ever since. Your sessions have averaged 15 minutes each."
+
+Query: "what's the longest I've gone without drinking"
+Good Response: "Your longest streak without drinking was 23 days, from December 15th to January 6th. Your current streak is 19 days - keep it up!"
 
 Query: "how many kilometers have I run"
 Good Response: "You've run 42 kilometers across 6 runs since January 29th. Your longest run was 10km on February 1st!"
