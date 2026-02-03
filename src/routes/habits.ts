@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
-import { streamText } from 'ai'
+import { streamText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { generateObject } from 'ai'
+import { streamText as honoStreamText } from 'hono/streaming'
 import { prisma } from '../lib/db'
 
 import {
@@ -107,7 +108,7 @@ const createHabitLogTool = {
 /**
  * Tool: Get habit logs with optional filtering
  */
-const getHabitLogsTool = {
+const getHabitLogsTool = tool({
   description:
     'Fetch habit logs for a specific habit with optional date range filtering',
   parameters: getHabitLogsSchema,
@@ -147,12 +148,12 @@ const getHabitLogsTool = {
       logs,
     }
   },
-}
+})
 
 /**
  * Tool: Calculate current streak for a habit
  */
-const calculateStreakTool = {
+const calculateStreakTool = tool({
   description: 'Calculate the current streak (consecutive days) for a habit',
   parameters: calculateStreakSchema,
   execute: async ({
@@ -175,19 +176,19 @@ const calculateStreakTool = {
       habitType: habit.type,
       currentStreak: streak
         ? {
-            length: streak.length,
-            startDate: streak.startDate.toISOString(),
-            endDate: streak.endDate.toISOString(),
-          }
+          length: streak.length,
+          startDate: streak.startDate.toISOString(),
+          endDate: streak.endDate.toISOString(),
+        }
         : null,
     }
   },
-}
+})
 
 /**
  * Tool: Find last occurrence of a habit
  */
-const findLastOccurrenceTool = {
+const findLastOccurrenceTool = tool({
   description:
     'Find the last time a habit was completed (BUILD) or given in to (BREAK)',
   parameters: findLastOccurrenceSchema,
@@ -211,22 +212,22 @@ const findLastOccurrenceTool = {
       habitType: habit.type,
       lastOccurrence: lastOccurrence
         ? {
-            eventDate: lastOccurrence.eventDate.toISOString(),
-            completed: lastOccurrence.completed,
-            quantity: lastOccurrence.quantity,
-            unit: lastOccurrence.unit,
-            timeOfDay: lastOccurrence.timeOfDay,
-            notes: lastOccurrence.notes,
-          }
+          eventDate: lastOccurrence.eventDate.toISOString(),
+          completed: lastOccurrence.completed,
+          quantity: lastOccurrence.quantity,
+          unit: lastOccurrence.unit,
+          timeOfDay: lastOccurrence.timeOfDay,
+          notes: lastOccurrence.notes,
+        }
         : null,
     }
   },
-}
+})
 
 /**
  * Tool: Get comprehensive statistics for a habit
  */
-const getHabitStatsTool = {
+const getHabitStatsTool = tool({
   description:
     'Get comprehensive statistics including completion rate, streaks, and date ranges',
   parameters: getHabitStatsSchema,
@@ -270,7 +271,7 @@ const getHabitStatsTool = {
       },
     }
   },
-}
+})
 
 // ============================================================================
 // ENDPOINTS
@@ -359,7 +360,7 @@ app.get('/query', async (c) => {
     const userId = 'default_user'
 
     // Stream the response
-    const result = await streamText({
+    const result = streamText({
       model: openai('gpt-4o'),
       prompt: buildQueryPrompt(prompt),
       tools: {
@@ -368,10 +369,13 @@ app.get('/query', async (c) => {
         findLastOccurrence: findLastOccurrenceTool,
         getHabitStats: getHabitStatsTool,
       },
-      maxSteps: 5,
     })
 
-    return result.toTextStreamResponse()
+    return honoStreamText(c, async (stream) => {
+      for await (const chunk of result.textStream) {
+        await stream.write(chunk)
+      }
+    })
   } catch (error) {
     console.error('Error querying habits:', error)
     return c.json(

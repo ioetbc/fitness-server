@@ -77,3 +77,14 @@
   - Ambiguous context (drinking water vs drinking alcohol) ✓
 - All 14 tests passing with 77 assertions
 - Committed: 3331b25
+
+✅ Task 8: API documentation completed
+- Created HABIT_TRACKING_API.md with comprehensive documentation
+- All 3 endpoints documented with curl examples
+- BUILD vs BREAK habit types explained
+- 11 detailed API examples covering all use cases
+- Edge cases documented (semantic matching, ambiguity, same-day logs, retroactive)
+- Error handling examples
+- Testing instructions (unit + integration)
+- Architecture overview and database schema
+- Committed: dc46e3b
