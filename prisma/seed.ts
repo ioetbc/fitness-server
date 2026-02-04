@@ -278,6 +278,10 @@ async function main() {
     })
   }
 
+  // delete all habits and habit logs
+  await prisma.habit.deleteMany()
+  await prisma.habitLog.deleteMany()
+
   console.log('Created user preference:', user)
   console.log(`Created ${videos.length} videos`)
 
@@ -285,204 +289,204 @@ async function main() {
   console.log('Seeding habit tracking data...')
 
   // Create BUILD habits (positive habits to cultivate)
-  const runningHabit = await prisma.habit.upsert({
-    where: { userId_name: { userId: 'default_user', name: 'running' } },
-    update: {},
-    create: {
-      userId: 'default_user',
-      name: 'running',
-      type: 'BUILD',
-    },
-  })
+  // const runningHabit = await prisma.habit.upsert({
+  //   where: { userId_name: { userId: 'default_user', name: 'running' } },
+  //   update: {},
+  //   create: {
+  //     userId: 'default_user',
+  //     name: 'running',
+  //     type: 'BUILD',
+  //   },
+  // })
 
-  const readingHabit = await prisma.habit.upsert({
-    where: { userId_name: { userId: 'default_user', name: 'reading before bed' } },
-    update: {},
-    create: {
-      userId: 'default_user',
-      name: 'reading before bed',
-      type: 'BUILD',
-    },
-  })
+  // const readingHabit = await prisma.habit.upsert({
+  //   where: { userId_name: { userId: 'default_user', name: 'reading before bed' } },
+  //   update: {},
+  //   create: {
+  //     userId: 'default_user',
+  //     name: 'reading before bed',
+  //     type: 'BUILD',
+  //   },
+  // })
 
-  const meditatingHabit = await prisma.habit.upsert({
-    where: { userId_name: { userId: 'default_user', name: 'meditating' } },
-    update: {},
-    create: {
-      userId: 'default_user',
-      name: 'meditating',
-      type: 'BUILD',
-    },
-  })
+  // const meditatingHabit = await prisma.habit.upsert({
+  //   where: { userId_name: { userId: 'default_user', name: 'meditating' } },
+  //   update: {},
+  //   create: {
+  //     userId: 'default_user',
+  //     name: 'meditating',
+  //     type: 'BUILD',
+  //   },
+  // })
 
   // Create BREAK habits (negative habits to avoid)
-  const drinkingHabit = await prisma.habit.upsert({
-    where: { userId_name: { userId: 'default_user', name: 'drinking' } },
-    update: {},
-    create: {
-      userId: 'default_user',
-      name: 'drinking',
-      type: 'BREAK',
-    },
-  })
+  // const drinkingHabit = await prisma.habit.upsert({
+  //   where: { userId_name: { userId: 'default_user', name: 'drinking' } },
+  //   update: {},
+  //   create: {
+  //     userId: 'default_user',
+  //     name: 'drinking',
+  //     type: 'BREAK',
+  //   },
+  // })
 
-  const smokingHabit = await prisma.habit.upsert({
-    where: { userId_name: { userId: 'default_user', name: 'smoking' } },
-    update: {},
-    create: {
-      userId: 'default_user',
-      name: 'smoking',
-      type: 'BREAK',
-    },
-  })
+  // const smokingHabit = await prisma.habit.upsert({
+  //   where: { userId_name: { userId: 'default_user', name: 'smoking' } },
+  //   update: {},
+  //   create: {
+  //     userId: 'default_user',
+  //     name: 'smoking',
+  //     type: 'BREAK',
+  //   },
+  // })
 
   // Create habit logs for running (7-day streak with quantities)
-  const today = new Date()
-  for (let i = 6; i >= 0; i--) {
-    const eventDate = new Date(today)
-    eventDate.setDate(eventDate.getDate() - i)
-    eventDate.setHours(0, 0, 0, 0)
+  // const today = new Date()
+  // for (let i = 6; i >= 0; i--) {
+  //   const eventDate = new Date(today)
+  //   eventDate.setDate(eventDate.getDate() - i)
+  //   eventDate.setHours(0, 0, 0, 0)
 
-    await prisma.habitLog.create({
-      data: {
-        habitId: runningHabit.id,
-        completed: true,
-        eventDate: eventDate,
-        quantity: 3 + Math.random() * 3, // 3-6 miles
-        unit: 'miles',
-        timeOfDay: i % 2 === 0 ? 'morning' : 'afternoon',
-        notes: i === 0 ? 'Felt great today!' : null,
-      },
-    })
-  }
+  //   await prisma.habitLog.create({
+  //     data: {
+  //       habitId: runningHabit.id,
+  //       completed: true,
+  //       eventDate: eventDate,
+  //       quantity: 3 + Math.random() * 3, // 3-6 miles
+  //       unit: 'miles',
+  //       timeOfDay: i % 2 === 0 ? 'morning' : 'afternoon',
+  //       notes: i === 0 ? 'Felt great today!' : null,
+  //     },
+  //   })
+  // }
 
   // Create habit logs for reading (mixed completion, some missed days)
-  await prisma.habitLog.create({
-    data: {
-      habitId: readingHabit.id,
-      completed: true,
-      eventDate: new Date(new Date().setDate(today.getDate() - 10)),
-      quantity: 30,
-      unit: 'pages',
-      timeOfDay: 'night',
-    },
-  })
-  await prisma.habitLog.create({
-    data: {
-      habitId: readingHabit.id,
-      completed: true,
-      eventDate: new Date(new Date().setDate(today.getDate() - 9)),
-      quantity: 25,
-      unit: 'pages',
-      timeOfDay: 'night',
-    },
-  })
-  await prisma.habitLog.create({
-    data: {
-      habitId: readingHabit.id,
-      completed: false,
-      eventDate: new Date(new Date().setDate(today.getDate() - 8)),
-      notes: 'Too tired, fell asleep immediately',
-    },
-  })
-  await prisma.habitLog.create({
-    data: {
-      habitId: readingHabit.id,
-      completed: true,
-      eventDate: new Date(new Date().setDate(today.getDate() - 2)),
-      quantity: 40,
-      unit: 'pages',
-      timeOfDay: 'night',
-    },
-  })
-  await prisma.habitLog.create({
-    data: {
-      habitId: readingHabit.id,
-      completed: true,
-      eventDate: new Date(new Date().setDate(today.getDate() - 1)),
-      quantity: 35,
-      unit: 'pages',
-      timeOfDay: 'night',
-    },
-  })
-  await prisma.habitLog.create({
-    data: {
-      habitId: readingHabit.id,
-      completed: true,
-      eventDate: today,
-      quantity: 28,
-      unit: 'pages',
-      timeOfDay: 'night',
-    },
-  })
+  // await prisma.habitLog.create({
+  //   data: {
+  //     habitId: readingHabit.id,
+  //     completed: true,
+  //     eventDate: new Date(new Date().setDate(today.getDate() - 10)),
+  //     quantity: 30,
+  //     unit: 'pages',
+  //     timeOfDay: 'night',
+  //   },
+  // })
+  // await prisma.habitLog.create({
+  //   data: {
+  //     habitId: readingHabit.id,
+  //     completed: true,
+  //     eventDate: new Date(new Date().setDate(today.getDate() - 9)),
+  //     quantity: 25,
+  //     unit: 'pages',
+  //     timeOfDay: 'night',
+  //   },
+  // })
+  // await prisma.habitLog.create({
+  //   data: {
+  //     habitId: readingHabit.id,
+  //     completed: false,
+  //     eventDate: new Date(new Date().setDate(today.getDate() - 8)),
+  //     notes: 'Too tired, fell asleep immediately',
+  //   },
+  // })
+  // await prisma.habitLog.create({
+  //   data: {
+  //     habitId: readingHabit.id,
+  //     completed: true,
+  //     eventDate: new Date(new Date().setDate(today.getDate() - 2)),
+  //     quantity: 40,
+  //     unit: 'pages',
+  //     timeOfDay: 'night',
+  //   },
+  // })
+  // await prisma.habitLog.create({
+  //   data: {
+  //     habitId: readingHabit.id,
+  //     completed: true,
+  //     eventDate: new Date(new Date().setDate(today.getDate() - 1)),
+  //     quantity: 35,
+  //     unit: 'pages',
+  //     timeOfDay: 'night',
+  //   },
+  // })
+  // await prisma.habitLog.create({
+  //   data: {
+  //     habitId: readingHabit.id,
+  //     completed: true,
+  //     eventDate: today,
+  //     quantity: 28,
+  //     unit: 'pages',
+  //     timeOfDay: 'night',
+  //   },
+  // })
 
-  // Create habit logs for meditating (recent 3-day streak)
-  for (let i = 2; i >= 0; i--) {
-    const eventDate = new Date(today)
-    eventDate.setDate(eventDate.getDate() - i)
-    eventDate.setHours(0, 0, 0, 0)
+  // // Create habit logs for meditating (recent 3-day streak)
+  // for (let i = 2; i >= 0; i--) {
+  //   const eventDate = new Date(today)
+  //   eventDate.setDate(eventDate.getDate() - i)
+  //   eventDate.setHours(0, 0, 0, 0)
 
-    await prisma.habitLog.create({
-      data: {
-        habitId: meditatingHabit.id,
-        completed: true,
-        eventDate: eventDate,
-        quantity: 10 + i * 5, // 10-20 minutes
-        unit: 'minutes',
-        timeOfDay: 'morning',
-      },
-    })
-  }
+  //   await prisma.habitLog.create({
+  //     data: {
+  //       habitId: meditatingHabit.id,
+  //       completed: true,
+  //       eventDate: eventDate,
+  //       quantity: 10 + i * 5, // 10-20 minutes
+  //       unit: 'minutes',
+  //       timeOfDay: 'morning',
+  //     },
+  //   })
+  // }
 
-  // Create habit logs for drinking (BREAK habit - successfully avoided for 19 days, last slip was 19 days ago)
-  await prisma.habitLog.create({
-    data: {
-      habitId: drinkingHabit.id,
-      completed: false, // false = gave in to the habit
-      eventDate: new Date(new Date().setDate(today.getDate() - 19)),
-      quantity: 3,
-      unit: 'drinks',
-      timeOfDay: 'evening',
-      notes: 'Had a few drinks at friend\'s party',
-    },
-  })
+  // // Create habit logs for drinking (BREAK habit - successfully avoided for 19 days, last slip was 19 days ago)
+  // await prisma.habitLog.create({
+  //   data: {
+  //     habitId: drinkingHabit.id,
+  //     completed: false, // false = gave in to the habit
+  //     eventDate: new Date(new Date().setDate(today.getDate() - 19)),
+  //     quantity: 3,
+  //     unit: 'drinks',
+  //     timeOfDay: 'evening',
+  //     notes: 'Had a few drinks at friend\'s party',
+  //   },
+  // })
 
-  // Successfully avoiding drinking for the past 18 days
-  for (let i = 18; i >= 0; i--) {
-    const eventDate = new Date(today)
-    eventDate.setDate(eventDate.getDate() - i)
-    eventDate.setHours(0, 0, 0, 0)
+  // // Successfully avoiding drinking for the past 18 days
+  // for (let i = 18; i >= 0; i--) {
+  //   const eventDate = new Date(today)
+  //   eventDate.setDate(eventDate.getDate() - i)
+  //   eventDate.setHours(0, 0, 0, 0)
 
-    await prisma.habitLog.create({
-      data: {
-        habitId: drinkingHabit.id,
-        completed: true, // true = successfully avoided
-        eventDate: eventDate,
-      },
-    })
-  }
+  //   await prisma.habitLog.create({
+  //     data: {
+  //       habitId: drinkingHabit.id,
+  //       completed: true, // true = successfully avoided
+  //       eventDate: eventDate,
+  //     },
+  //   })
+  // }
 
-  // Create habit logs for smoking (BREAK habit - longer streak of 30 days)
-  for (let i = 29; i >= 0; i--) {
-    const eventDate = new Date(today)
-    eventDate.setDate(eventDate.getDate() - i)
-    eventDate.setHours(0, 0, 0, 0)
+  // // Create habit logs for smoking (BREAK habit - longer streak of 30 days)
+  // for (let i = 29; i >= 0; i--) {
+  //   const eventDate = new Date(today)
+  //   eventDate.setDate(eventDate.getDate() - i)
+  //   eventDate.setHours(0, 0, 0, 0)
 
-    await prisma.habitLog.create({
-      data: {
-        habitId: smokingHabit.id,
-        completed: true, // true = successfully avoided
-        eventDate: eventDate,
-      },
-    })
-  }
+  //   await prisma.habitLog.create({
+  //     data: {
+  //       habitId: smokingHabit.id,
+  //       completed: true, // true = successfully avoided
+  //       eventDate: eventDate,
+  //     },
+  //   })
+  // }
 
-  console.log('Created 5 habits with comprehensive log history:')
-  console.log(`  - ${runningHabit.name} (BUILD): 7-day streak with distance tracking`)
-  console.log(`  - ${readingHabit.name} (BUILD): mixed completion with page counts`)
-  console.log(`  - ${meditatingHabit.name} (BUILD): 3-day streak with duration`)
-  console.log(`  - ${drinkingHabit.name} (BREAK): 19-day avoidance streak`)
-  console.log(`  - ${smokingHabit.name} (BREAK): 30-day avoidance streak`)
+  // console.log('Created 5 habits with comprehensive log history:')
+  // console.log(`  - ${runningHabit.name} (BUILD): 7-day streak with distance tracking`)
+  // console.log(`  - ${readingHabit.name} (BUILD): mixed completion with page counts`)
+  // console.log(`  - ${meditatingHabit.name} (BUILD): 3-day streak with duration`)
+  // console.log(`  - ${drinkingHabit.name} (BREAK): 19-day avoidance streak`)
+  // console.log(`  - ${smokingHabit.name} (BREAK): 30-day avoidance streak`)
 }
 
 main()

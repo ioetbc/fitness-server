@@ -1,534 +1,317 @@
-# Product Requirements Document: Natural Language Habit Tracking System
-
-## Overview
-Build a habit tracking system with natural language logging and querying capabilities, enabling users to track any habit through conversational commands and receive intelligent analytics responses.
-
-## Objectives
-- Enable habit tracking through natural language ("log no drinking habit", "ran 5 miles this morning")
-- Support natural language queries ("how many consecutive days have I run", "when did I last have a drink")
-- Auto-create habits on first log without pre-definition
-- Track both habits to build (running, reading) and habits to break (drinking, smoking)
-- Provide flexible data capture: binary tracking, quantities/metrics, time of day
-- Maintain complete separation from existing video recommendation system
-
----
-
-## User Stories
-
-### Logging Habits
-1. **As a user**, I want to log that I avoided a bad habit by saying "log no drinking habit", so the system records my success
-2. **As a user**, I want to log exercise with metrics like "ran 5 miles this morning" and have it capture quantity, unit, and time
-3. **As a user**, I want to log a missed habit with "didn't read before bed" and have it recorded accurately
-4. **As a user**, I want habits to be created automatically on first log without having to set them up first
-
-### Querying Analytics
-5. **As a user**, I want to ask "how many consecutive days have I run" and get my current streak
-6. **As a user**, I want to ask "when did I last have a drink" and see the exact date
-7. **As a user**, I want to receive encouraging, conversational responses to my queries
-8. **As a user**, I want the system to understand the difference between building good habits and breaking bad ones
-
-### Flexibility
-9. **As a user**, I want to track absolutely anything - miles run, glasses of water, minutes meditated, pages read
-10. **As a user**, I want to log habits retroactively with phrases like "ran yesterday" or "meditated last night"
-
----
-
-## Functional Requirements
-
-### FR1: Natural Language Logging
-- **FR1.1**: Accept natural language input for habit logging via POST /habits/log endpoint
-- **FR1.2**: Parse and extract:
-  - Habit name (normalized)
-  - Completion status (did/didn't do it)
-  - Habit type (BUILD or BREAK)
-  - Optional quantity and unit
-  - Optional time of day
-  - Event date (default to today)
-- **FR1.3**: Auto-create habits if they don't exist
-- **FR1.4**: Return structured JSON confirmation with parsed data
-
-**Examples:**
-- Input: "log no drinking habit"
-  - Creates/finds BREAK habit "drinking"
-  - Records completed=true (successfully avoided)
-- Input: "ran 5 miles this morning"
-  - Creates/finds BUILD habit "running"
-  - Records completed=true, quantity=5, unit="miles", timeOfDay="morning"
-
-### FR2: Habit Type Distinction
-- **FR2.1**: Support two habit types:
-  - **BUILD**: Positive habits to cultivate (running, reading, meditating)
-  - **BREAK**: Negative habits to avoid (drinking, smoking, junk food)
-- **FR2.2**: Interpret completion status based on type:
-  - BUILD habits: completed=true means "did it", false means "didn't do it"
-  - BREAK habits: completed=true means "successfully avoided", false means "gave in"
-- **FR2.3**: Use LLM intelligence to infer type on first log
-- **FR2.4**: Persist type in database for consistency on subsequent logs
-
-### FR3: Natural Language Querying
-- **FR3.1**: Accept analytics questions via GET /habits/query endpoint
-- **FR3.2**: Support query types:
-  - Streak calculation ("how many consecutive days have I run")
-  - Last occurrence ("when did I last have a drink")
-  - Statistics ("show my reading stats")
-  - Completion rates ("how often do I exercise")
-- **FR3.3**: Return streaming conversational text responses
-- **FR3.4**: Provide specific dates, numbers, and encouraging context
-
-### FR4: Flexible Data Capture
-- **FR4.1**: Support binary tracking (yes/no, did/didn't)
-- **FR4.2**: Support quantity tracking with any unit:
-  - Distance: "5 miles", "3 kilometers"
-  - Volume: "2 glasses", "8 cups"
-  - Duration: "30 minutes", "2 hours"
-  - Count: "50 pages", "10 push-ups"
-- **FR4.3**: Support time of day capture: morning, afternoon, evening, night, or specific times
-- **FR4.4**: Support optional notes/context
-- **FR4.5**: Allow retroactive logging with date parsing
-
-### FR5: Analytics Calculations
-- **FR5.1**: Calculate current streak (consecutive days with completed=true)
-- **FR5.2**: Handle streak breaks properly (completed=false or date gap > 1 day)
-- **FR5.3**: Find last occurrence of completed habit
-- **FR5.4**: Compute comprehensive statistics:
-  - Total logs
-  - Completion rate
-  - Current streak
-  - Longest streak
-  - First and last log dates
-- **FR5.5**: Support date range queries
-
-### FR6: Habit Management
-- **FR6.1**: Store habits with normalized names (lowercase, singular when possible)
-- **FR6.2**: Allow same habit with different phrasing ("went for a run" vs "ran" vs "running")
-- **FR6.3**: Support multiple logs per day without breaking streaks
-- **FR6.4**: Optional: Provide GET /habits/list endpoint for viewing all habits
-
----
-
-## Non-Functional Requirements
-
-### NFR1: Performance
-- Database queries optimized with indexes on:
-  - [habitId, eventDate] for habit history
-  - [habitId, completed] for streak calculations
-  - [eventDate] for date-range queries
-- Default date range limit of 90 days for analytics
-- Query limit of 100 logs default for performance
-
-### NFR2: Data Integrity
-- Unique constraint on [userId, habitName] prevents duplicates
-- Cascade delete: removing habit deletes all logs
-- Separate eventDate (when occurred) from loggedAt (when recorded)
-- All dates stored in UTC
-
-### NFR3: Flexibility
-- No validation on unit types - accept any string
-- quantity field as Float handles decimals
-- No pre-defined habit categories
-- Support for "absolutely anything"
-
-### NFR4: Architecture
-- Complete separation from video recommendation system
-- Follow existing patterns: Hono + OpenAI + Vercel AI SDK + Prisma
-- Tool-based execution with Zod validation
-- Consistent with current codebase architecture
-
-### NFR5: User Experience
-- Conversational, encouraging responses
-- Specific data (dates, numbers) in responses
-- Helpful error messages for ambiguous inputs
-- JSON confirmation responses for logging
-
----
-
-## Database Schema
-
-### Habit Model
-```prisma
-model Habit {
-  id          Int         @id @default(autoincrement())
-  userId      String      @default("default_user")
-  name        String      // Normalized: "running", "drinking", "reading before bed"
-  type        HabitType   // BUILD or BREAK
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  logs        HabitLog[]
-
-  @@unique([userId, name])
-  @@index([userId, type])
-}
-```
-
-### HabitLog Model
-```prisma
-model HabitLog {
-  id              Int       @id @default(autoincrement())
-  habitId         Int
-  habit           Habit     @relation(fields: [habitId], references: [id], onDelete: Cascade)
-  completed       Boolean   // true = did it / successfully avoided
-  loggedAt        DateTime  @default(now())
-  eventDate       DateTime  // When habit actually occurred
-  quantity        Float?    // Flexible metrics
-  unit            String?   // "miles", "glasses", "minutes", etc.
-  timeOfDay       String?   // "morning", "afternoon", "evening", "night"
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@index([habitId, eventDate])
-  @@index([habitId, completed])
-  @@index([eventDate])
-}
-```
-
-### HabitType Enum
-```prisma
-enum HabitType {
-  BUILD  // Habits to cultivate
-  BREAK  // Habits to avoid
-}
-```
-
----
-
-## API Specification
-
-### POST /habits/log
-**Purpose**: Log a habit through natural language
-
-**Request:**
-```
-POST /habits/log?prompt=log%20no%20drinking%20habit
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Successfully logged habit: drinking",
-  "habit": {
-    "id": 1,
-    "name": "drinking",
-    "type": "BREAK"
-  },
-  "log": {
-    "id": 123,
-    "completed": false,
-    "eventDate": "2026-02-03T00:00:00Z",
-    "quantity": null,
-    "unit": null,
-    "timeOfDay": null,
-    "notes": "User logged: no drinking habit"
-  }
-}
-```
-
-**Execution**: Structured JSON output using Vercel AI SDK
-
-**Tools**: getExistingHabits, createOrUpdateHabit, createHabitLog
-
-### GET /habits/query
-**Purpose**: Query habit analytics through natural language
-
-**Request:**
-```
-GET /habits/query?prompt=how%20many%20consecutive%20days%20have%20I%20run
-```
-
-**Response (Streaming Text):**
-```
-You've been running for 7 consecutive days! Your streak started on January 27th
-and you've logged runs every day since then. Keep up the great work!
-```
-
-**Execution**: Streaming text using Vercel AI SDK
-
-**Tools**: getHabitLogs, calculateStreakTool, findLastOccurrenceTool, getHabitStatsTool
-
-### GET /habits/list (Optional)
-**Purpose**: List all user habits
-
-**Response:**
-```json
-{
-  "habits": [
-    {
-      "id": 1,
-      "name": "running",
-      "type": "BUILD",
-      "totalLogs": 15,
-      "currentStreak": 7,
-      "lastLogged": "2026-02-03T08:00:00Z"
-    }
-  ]
-}
-```
-
----
-
-## Key Behaviors & Edge Cases
-
-### BUILD vs BREAK Logic (CRITICAL)
-
-**BREAK Habits (avoid negative behaviors):**
-- "log no drinking habit" → completed: true ✅ (successfully avoided)
-- "didn't smoke today" → completed: true ✅ (successfully avoided)
-- "had a drink" → completed: false ❌ (gave in to habit)
-- Streak = consecutive days of successful avoidance
-
-**BUILD Habits (cultivate positive behaviors):**
-- "went for a run" → completed: true ✅ (did the habit)
-- "read before bed" → completed: true ✅ (did the habit)
-- "didn't run today" → completed: false ❌ (failed to do it)
-- Streak = consecutive days of completion
-
-### Habit Name Normalization
-- "went on a run", "went for a run", "ran" → all normalize to "running"
-- "had a drink", "drinking", "drank" → all normalize to "drinking"
-- Preserve specificity when needed: "reading before bed" vs just "reading"
-- Store lowercase, singular form when possible
-
-### Date Handling
-- "yesterday" → previous calendar day
-- "last night" → if after midnight, still previous day
-- "Monday" → most recent Monday
-- "3 days ago" → calculate relative date
-- Default to today if not specified
-
-### Multiple Logs Same Day
-- Allow multiple logs for same habit on same day
-- Don't break streak for multiple same-day entries
-- Don't double-count for streak calculation
-
-### Type Inference
-- First log: LLM infers from context
-  - "drinking" → likely BREAK (alcohol)
-  - "drinking water" → BUILD
-  - "running" → BUILD
-  - "smoking" → BREAK
-- Subsequent logs: Use stored type from database
-- Default to BUILD if truly ambiguous
-
----
-
-## Success Metrics
-
-### Primary Metrics
-1. **Accuracy**: >95% correct habit type inference on first log
-2. **Streak Accuracy**: 100% accurate consecutive day calculation
-3. **Parse Success**: >90% of natural language inputs correctly parsed
-4. **Response Time**: <2s for logging, <3s for queries
-
-### User Experience Metrics
-5. **Zero Pre-configuration**: All habits auto-created on first use
-6. **Flexibility**: Support any quantity/unit combination
-7. **Retroactive Logging**: Parse relative dates correctly
-8. **Encouraging Responses**: Positive, specific feedback in queries
-
----
-
-## Out of Scope (Future Enhancements)
-
-### V2 Features
-- Multi-user support with authentication
-- Habit editing and deletion
-- Goal setting ("run 5 times per week")
-- Reminders and notifications
-- Data export (CSV, JSON)
-
-### V3 Features
-- Habit templates and categories
-- Social features (share streaks)
-- Visualizations (charts, graphs)
-- AI insights ("your best running days are Mondays")
-- Third-party integrations (Apple Health, Fitbit)
-
----
-
-## Technical Implementation Summary
-
-### New Files
-1. `src/prompts/habit-tracking-prompts.ts` - System prompts for parsing and analytics
-2. `src/lib/habit-analytics.ts` - Streak calculation and statistics utilities
-3. `src/types/habit-schemas.ts` - Zod validation schemas
-4. `src/routes/habits.ts` - Main implementation (endpoints + tools)
-
-### Modified Files
-1. `prisma/schema.prisma` - Add Habit, HabitLog models and HabitType enum
-2. `src/index.ts` - Mount habit routes
-3. `prisma/seed.ts` - Add sample habit data
-
-### Dependencies
-- Existing: Hono, OpenAI, Vercel AI SDK, Prisma, Zod
-- No new dependencies required
-
-### Migration
-```bash
-bun run prisma migrate dev --name add_habit_tracking
-bun run prisma db seed
-```
-
----
-
-## Testing Requirements
-
-### Unit Tests
-- Streak calculation with various scenarios
-- Date parsing (yesterday, last night, relative dates)
-- Habit name normalization
-- Type inference logic
-
-### Integration Tests
-- Auto-creation on first log
-- Correct type persistence across logs
-- Multiple same-day logs
-- Retroactive logging
-
-### End-to-End Tests
-- Complete logging flow: input → parse → store → confirm
-- Complete query flow: input → analyze → respond
-- BUILD habit scenarios
-- BREAK habit scenarios
-- Quantity tracking
-- Time of day capture
-
-### Test Cases (Examples)
-1. "log no drinking habit" → BREAK, completed=true
-2. "ran 5 miles this morning" → BUILD, quantity=5, unit="miles", timeOfDay="morning"
-3. "didn't read before bed" → BUILD, completed=false
-4. "how many consecutive days have I run" → accurate streak
-5. "when did I last have a drink" → correct date
-6. Same habit different phrasing → same normalized name
-7. Multiple logs same day → doesn't break streak
-
----
-
-## Risks & Mitigations
-
-### Risk 1: Ambiguous Type Inference
-- **Impact**: User says "drinking" - is it water (BUILD) or alcohol (BREAK)?
-- **Mitigation**: LLM uses context clues; can add explicit syntax later ("log BUILD habit: drinking water")
-
-### Risk 2: Parsing Errors
-- **Impact**: Natural language is unpredictable; might misparse complex inputs
-- **Mitigation**: Return parsed data in confirmation; user can verify; notes field preserves original input
-
-### Risk 3: Streak Calculation Edge Cases
-- **Impact**: Time zones, multiple logs, gaps could cause incorrect streaks
-- **Mitigation**: Comprehensive unit tests; use UTC consistently; clear algorithm documentation
-
-### Risk 4: Database Performance
-- **Impact**: Large number of logs could slow queries
-- **Mitigation**: Proper indexes; default date ranges; pagination for large datasets
-
----
-
-## Launch Checklist
-
-- [x] Database schema updated and migrated
-- [x] Sample seed data created and tested
-- [x] Analytics utilities implemented and unit tested
-- [x] System prompts written with comprehensive examples
-- [x] Logging endpoint implemented with all tools
-- [x] Query endpoint implemented with all tools
-- [x] Routes mounted in main app
-- [x] All test cases passing
-- [x] Edge cases handled (ambiguity, retroactive, same-day)
-- [x] Documentation updated with API examples
-- [x] Manual testing with curl completed
-
----
-
-## Appendix: Example Interactions
-
-### Example 1: First Time Logging a BREAK Habit
-```
-User: "log no drinking habit"
-
-System Response:
-{
-  "success": true,
-  "message": "Successfully logged habit: drinking",
-  "habit": {
-    "id": 1,
-    "name": "drinking",
-    "type": "BREAK"
-  },
-  "log": {
-    "id": 1,
-    "completed": true,
-    "eventDate": "2026-02-03T00:00:00Z",
-    "quantity": null,
-    "unit": null,
-    "timeOfDay": null,
-    "notes": "User logged: no drinking habit"
-  }
-}
-
-Database State:
-- Habit "drinking" created with type BREAK
-- Log created with completed=true (successfully avoided drinking)
-```
-
-### Example 2: Logging BUILD Habit with Metrics
-```
-User: "ran 5 miles this morning"
-
-System Response:
-{
-  "success": true,
-  "message": "Successfully logged habit: running",
-  "habit": {
-    "id": 2,
-    "name": "running",
-    "type": "BUILD"
-  },
-  "log": {
-    "id": 2,
-    "completed": true,
-    "eventDate": "2026-02-03T00:00:00Z",
-    "quantity": 5,
-    "unit": "miles",
-    "timeOfDay": "morning",
-    "notes": null
-  }
-}
-
-Database State:
-- Habit "running" created with type BUILD
-- Log created with completed=true, quantity=5, unit="miles", timeOfDay="morning"
-```
-
-### Example 3: Streak Query
-```
-User: "how many consecutive days have I run"
-
-System Response (Streaming):
-"You've been running for 7 consecutive days! Your current streak started on
-January 27th and you've logged runs every day since then. That's fantastic
-consistency - keep up the great work! 🎯"
-
-Calculation:
-- Fetched all logs for "running" habit
-- Found 7 consecutive days with completed=true
-- No gaps in dates, no completed=false entries
-- Streak start: Jan 27, last log: Feb 3
-```
-
-### Example 4: Last Occurrence for BREAK Habit
-```
-User: "when did I last have a drink"
-
-System Response (Streaming):
-"You last had a drink on January 15th - that's 19 days ago! You've successfully
-avoided drinking for over two and a half weeks. Amazing progress on breaking
-this habit! 🌟"
-
-Calculation:
-- Fetched logs for "drinking" habit where completed=false (gave in)
-- Most recent: Jan 15
-- Today: Feb 3
-- Days since: 19
-- Encouraging message emphasizes the avoidance success
-```
+     │ Problem Summary                                                              │
+     │                                                                              │
+     │ The habit tracking system has several prompt-related issues that cause       │
+     │ incorrect responses:                                                         │
+     │                                                                              │
+     │ Query Issues                                                                 │
+     │                                                                              │
+     │ 1. "When did I last have a drink?" → Returns "I don't see any logs for the   │
+     │ habit 'have a drink' yet"                                                    │
+     │   - Root cause: Query prompt doesn't provide existing habit names, so LLM    │
+     │ can't map "have a drink" → "drinking"                                        │
+     │   - Tools search by exact name match, failing when user phrasing differs from│
+     │  stored habit name                                                           │
+     │ 2. "What's the longest I've gone without drinking?" → Same semantic matching │
+     │ issue                                                                        │
+     │   - Also missing guidance about longest streak calculations                  │
+     │ 3. "How many kilometers have I run?" → Returns count of runs (6 times)       │
+     │ instead of sum of kilometers                                                 │
+     │   - Root cause: Prompt lacks instructions to aggregate quantity field when   │
+     │ user asks about total units                                                  │
+     │                                                                              │
+     │ Logging Issues                                                               │
+     │                                                                              │
+     │ 1. "I ran 5k 3 days ago" → Unit stored inconsistently ("k", "km", or         │
+     │ "kilometers")                                                                │
+     │   - Root cause: No unit normalization in logging prompt                      │
+     │   - Should always normalize to standard units (km, miles, minutes, etc.)     │
+     │                                                                              │
+     │ Solution Overview                                                            │
+     │                                                                              │
+     │ 1. Fix Query Prompt - Add Existing Habits Context                            │
+     │                                                                              │
+     │ File: src/prompts/habit-tracking-prompts.ts                                  │
+     │                                                                              │
+     │ The query prompt needs access to existing habit names for semantic matching. │
+     │                                                                              │
+     │ Changes:                                                                     │
+     │ - Modify buildQueryPrompt() function to accept existing habits list          │
+     │ - Add section to HABIT_QUERY_SYSTEM_PROMPT explaining semantic matching      │
+     │ requirement                                                                  │
+     │ - Include examples showing how to map user queries to actual habit names     │
+     │                                                                              │
+     │ Example:                                                                     │
+     │ User has habits: "running" (BUILD), "drinking" (BREAK)                       │
+     │ Query: "when did I last have a drink"                                        │
+     │ → LLM should use "drinking" when calling findLastOccurrenceTool              │
+     │                                                                              │
+     │ 2. Fix Query Prompt - Add Quantity Aggregation Guidance                      │
+     │                                                                              │
+     │ File: src/prompts/habit-tracking-prompts.ts                                  │
+     │                                                                              │
+     │ Add explicit instructions for handling aggregate queries.                    │
+     │                                                                              │
+     │ Changes:                                                                     │
+     │ - Add new query type section: "Aggregate Queries"                            │
+     │ - Explain that questions like "how many [unit]" require summing quantity     │
+     │ field                                                                        │
+     │ - Provide examples showing the calculation logic                             │
+     │                                                                              │
+     │ Example:                                                                     │
+     │ Query: "how many kilometers have I run"                                      │
+     │ → Use getHabitLogs for "running"                                             │
+     │ → Filter logs where unit matches (km, kilometers, k)                         │
+     │ → Sum the quantity field                                                     │
+     │ → Return: "You've run 42 kilometers total"                                   │
+     │                                                                              │
+     │ 3. Fix Query Prompt - Add Longest Streak Guidance                            │
+     │                                                                              │
+     │ File: src/prompts/habit-tracking-prompts.ts                                  │
+     │                                                                              │
+     │ Current prompt only mentions current streak, not longest streak.             │
+     │                                                                              │
+     │ Changes:                                                                     │
+     │ - Update streak query examples to include longest streak                     │
+     │ - Clarify that getHabitStatsTool returns both current and longest streaks    │
+     │ - Add example response for longest streak queries                            │
+     │                                                                              │
+     │ 4. Add Unit Normalization to Logging Prompt                                  │
+     │                                                                              │
+     │ File: src/prompts/habit-tracking-prompts.ts                                  │
+     │                                                                              │
+     │ Add comprehensive unit standardization rules.                                │
+     │                                                                              │
+     │ Changes:                                                                     │
+     │ - Add new section: "Unit Normalization" after line 80                        │
+     │ - Define standard units for common categories:                               │
+     │   - Distance: k/kms/kilometers → km, mi/mile/miles → miles                   │
+     │   - Time: min/mins/minute → minutes, hr/hrs/hour → hours                     │
+     │   - Weight: lb/lbs/pound → pounds, kg/kgs/kilogram → kg                      │
+     │   - Volume: oz/ounces → oz, l/liter → liters                                 │
+     │   - Count: pages, reps, drinks (already standardized)                        │
+     │                                                                              │
+     │ Example:                                                                     │
+     │ Input: "ran 5k this morning"                                                 │
+     │ → quantity: 5, unit: "km" (not "k")                                          │
+     │                                                                              │
+     │ Input: "meditated for 15 mins"                                               │
+     │ → quantity: 15, unit: "minutes" (not "mins")                                 │
+     │                                                                              │
+     │ 5. Update Query Route Handler                                                │
+     │                                                                              │
+     │ File: src/routes/habits.ts                                                   │
+     │                                                                              │
+     │ The /query endpoint needs to fetch and pass existing habits.                 │
+     │                                                                              │
+     │ Changes:                                                                     │
+     │ - Lines 277-311: Add database query to fetch existing habits                 │
+     │ - Pass habits to buildQueryPrompt()                                          │
+     │ - Similar to how /log endpoint fetches habits on lines 362-379               │
+     │                                                                              │
+     │ Implementation Details                                                       │
+     │                                                                              │
+     │ Critical Files to Modify                                                     │
+     │                                                                              │
+     │ 1. src/prompts/habit-tracking-prompts.ts (main changes)                      │
+     │   - Line 270-350: Update HABIT_QUERY_SYSTEM_PROMPT                           │
+     │   - Line 384-387: Update buildQueryPrompt() signature and implementation     │
+     │   - Line 9-253: Add unit normalization section to HABIT_LOGGING_SYSTEM_PROMPT│
+     │ 2. src/routes/habits.ts                                                      │
+     │   - Lines 277-311: Update /query endpoint to fetch and pass habits           │
+     │                                                                              │
+     │ Prompt Changes Breakdown                                                     │
+     │                                                                              │
+     │ HABIT_QUERY_SYSTEM_PROMPT Updates                                            │
+     │                                                                              │
+     │ 1. Add Semantic Matching Section (after line 276):                           │
+     │ ## CRITICAL: Semantic Habit Matching                                         │
+     │                                                                              │
+     │ You will be provided with a list of the user's existing habits. When they ask│
+     │  about a habit, you MUST map their query to the actual habit name stored in  │
+     │ the database.                                                                │
+     │                                                                              │
+     │ Examples:                                                                    │
+     │ - User has habit "drinking" → queries "have a drink", "alcohol", "had drinks"│
+     │  all map to "drinking"                                                       │
+     │ - User has habit "running" → queries "jog", "went for a run", "did a 5k" all │
+     │ map to "running"                                                             │
+     │                                                                              │
+     │ NEVER pass user's raw phrasing to tools - always use the actual habit name.  │
+     │                                                                              │
+     │ 2. Add Aggregate Query Section (after line 318):                             │
+     │ 5. **Aggregate Queries (NEW)**                                               │
+     │    - "how many kilometers have I run"                                        │
+     │    - "total pages read this month"                                           │
+     │    - Use getHabitLogs to fetch all logs                                      │
+     │    - Filter where unit matches (handle variants: k/km/kilometers)            │
+     │    - Sum the quantity field across all matching logs                         │
+     │    - Return the total with proper unit                                       │
+     │                                                                              │
+     │ 3. Update Streak Examples (line 299-302):                                    │
+     │   - Add "what's my longest meditation streak" example                        │
+     │   - Clarify getHabitStatsTool returns both current and longest               │
+     │ 4. Add Quantity Aggregation Example (after line 331):                        │
+     │ Query: "how many kilometers have I run"                                      │
+     │ Good Response: "You've run 42 kilometers across 6 runs since January 29th.   │
+     │ Your longest run was 10km on February 1st!"                                  │
+     │                                                                              │
+     │ HABIT_LOGGING_SYSTEM_PROMPT Updates                                          │
+     │                                                                              │
+     │ 1. Add Unit Normalization Section (after line 80):                           │
+     │ ## Unit Normalization (CRITICAL)                                             │
+     │                                                                              │
+     │ When extracting quantity and unit, ALWAYS normalize units to standard forms: │
+     │                                                                              │
+     │ **Distance:**                                                                │
+     │ - "k", "kms", "kilometers", "kilometer" → "km"                               │
+     │ - "mi", "mile", "miles" → "miles"                                            │
+     │ - "m", "meter", "meters" → "meters"                                          │
+     │                                                                              │
+     │ **Time:**                                                                    │
+     │ - "min", "mins", "minute", "minutes" → "minutes"                             │
+     │ - "hr", "hrs", "hour", "hours" → "hours"                                     │
+     │ - "sec", "secs", "second", "seconds" → "seconds"                             │
+     │                                                                              │
+     │ **Weight:**                                                                  │
+     │ - "lb", "lbs", "pound", "pounds" → "pounds"                                  │
+     │ - "kg", "kgs", "kilogram", "kilograms" → "kg"                                │
+     │                                                                              │
+     │ **Volume:**                                                                  │
+     │ - "oz", "ounce", "ounces" → "oz"                                             │
+     │ - "l", "liter", "liters", "litre", "litres" → "liters"                       │
+     │ - "ml", "milliliter", "milliliters" → "ml"                                   │
+     │                                                                              │
+     │ **Count (no normalization needed):**                                         │
+     │ - pages, reps, drinks, cigarettes, etc.                                      │
+     │                                                                              │
+     │ Examples:                                                                    │
+     │ - "ran 5k" → unit: "km" (not "k")                                            │
+     │ - "read for 30 mins" → unit: "minutes" (not "mins")                          │
+     │ - "lifted 50 lbs" → unit: "pounds" (not "lbs")                               │
+     │                                                                              │
+     │ 2. Add Example with Unit Normalization (after Example 9):                    │
+     │ ### Example 10: Unit normalization                                           │
+     │ Existing habits:                                                             │
+     │ - "running" (BUILD)                                                          │
+     │ Input: "ran 5k 3 days ago"                                                   │
+     │ Output:                                                                      │
+     │ {                                                                            │
+     │   "habitName": "running",                                                    │
+     │   "completed": true,                                                         │
+     │   "habitType": "BUILD",                                                      │
+     │   "quantity": 5,                                                             │
+     │   "unit": "km",  // ← normalized from "k"                                    │
+     │   "timeOfDay": null,                                                         │
+     │   "eventDate": "2026-01-31",                                                 │
+     │   "notes": null                                                              │
+     │ }                                                                            │
+     │                                                                              │
+     │ buildQueryPrompt() Function Update                                           │
+     │                                                                              │
+     │ Current (line 384-387):                                                      │
+     │ export function buildQueryPrompt(userInput: string): string {                │
+     │   const today = getTodayForPrompt()                                          │
+     │   return `${HABIT_QUERY_SYSTEM_PROMPT}\n\nToday's date: ${today}\n\nUser     │
+     │ question: "${userInput}"`                                                    │
+     │ }                                                                            │
+     │                                                                              │
+     │ Updated:                                                                     │
+     │ export function buildQueryPrompt(                                            │
+     │   userInput: string,                                                         │
+     │   existingHabits: Array<{ name: string; type: 'BUILD' | 'BREAK' }>           │
+     │ ): string {                                                                  │
+     │   const today = getTodayForPrompt()                                          │
+     │                                                                              │
+     │   let habitsContext = ''                                                     │
+     │   if (existingHabits.length > 0) {                                           │
+     │     habitsContext = '\n\nEXISTING HABITS (use these exact names when calling │
+     │ tools):\n'                                                                   │
+     │     habitsContext += existingHabits                                          │
+     │       .map(h => `- "${h.name}" (${h.type})`)                                 │
+     │       .join('\n')                                                            │
+     │   } else {                                                                   │
+     │     habitsContext = '\n\nEXISTING HABITS: None yet.'                         │
+     │   }                                                                          │
+     │                                                                              │
+     │   return `${HABIT_QUERY_SYSTEM_PROMPT}\n\nToday's date:                      │
+     │ ${today}${habitsContext}\n\nUser question: "${userInput}"`                   │
+     │ }                                                                            │
+     │                                                                              │
+     │ Query Route Handler Update                                                   │
+     │                                                                              │
+     │ Current (lines 277-311):                                                     │
+     │ app.get('/query', async (c) => {                                             │
+     │   try {                                                                      │
+     │     const prompt = c.req.query('prompt')                                     │
+     │                                                                              │
+     │     if (!prompt) {                                                           │
+     │       return c.json({ error: 'Missing prompt parameter' }, 400)              │
+     │     }                                                                        │
+     │                                                                              │
+     │     const query = buildQueryPrompt(prompt)                                   │
+     │                                                                              │
+     │     const result = streamText({                                              │
+     │       model: openai('gpt-4o'),                                               │
+     │       prompt: query,                                                         │
+     │       // ...                                                                 │
+     │     })                                                                       │
+     │     // ...                                                                   │
+     │   }                                                                          │
+     │ })                                                                           │
+     │                                                                              │
+     │ Updated:                                                                     │
+     │ app.get('/query', async (c) => {                                             │
+     │   try {                                                                      │
+     │     const prompt = c.req.query('prompt')                                     │
+     │     const userId = 'default_user'                                            │
+     │                                                                              │
+     │     if (!prompt) {                                                           │
+     │       return c.json({ error: 'Missing prompt parameter' }, 400)              │
+     │     }                                                                        │
+     │                                                                              │
+     │     // Fetch existing habits for semantic matching (similar to /log endpoint)│
+     │     const existingHabits = await prisma.habit.findMany({                     │
+     │       where: { userId },                                                     │
+     │       select: { name: true, type: true },                                    │
+     │     })                                                                       │
+     │                                                                              │
+     │     const query = buildQueryPrompt(prompt, existingHabits)                   │
+     │                                                                              │
+     │     const result = streamText({                                              │
+     │       model: openai('gpt-4o'),                                               │
+     │       prompt: query,                                                         │
+     │       // ...                                                                 │
+     │     })                                                                       │
+     │     // ...                                                                   │
+     │   }                                                                          │
+     │ })                                                                           │
+     │                                                                              │
+     │ Expected Outcomes                                                            │
+     │                                                                              │
+     │ After these changes:                                                         │
+     │                                                                              │
+     │ 1. "When did I last have a drink?" → Correctly maps to "drinking" habit and  │
+     │ returns accurate date                                                        │
+     │ 2. "What's the longest I've gone without drinking?" → Returns longest streak │
+     │ calculation                                                                  │
+     │ 3. "How many kilometers have I run?" → Returns sum of all quantities (e.g.,  │
+     │ "42 km across 6 runs")                                                       │
+     │ 4. "I ran 5k 3 days ago" → Always stores unit as "km" (not "k" or            │
+     │ "kilometers")                                                                │
+     │                                                                              │
+     │ User Confirmation                                                            │
+     │                                                                              │
+     │ - Scope: These four issues are the main problems - no additional edge cases  │
+     │ needed                                                                       │
+     │ - Unit handling: Support both metric and imperial, normalize within each     │
+     │ system (don't convert between systems)                                       │
+     │                                                                              │
+     │ Testing Plan                                                                 │
+     │                                                                              │
+     │ After implementation, test with:                                             │
+     │ - Query variations: "have a drink" vs "drinking" vs "alcohol"                │
+     │ - Aggregate queries: "how many km", "total pages", "total minutes"           │
+     │ - Longest streak: "longest streak without drinking"                          │
+     │ - Unit variants: "5k", "5km", "5 kilometers" all → "km"                      │
+     │ - Mixed units: User can log "5km" one day and "3 miles" another (both        │
+     │ accepted)
